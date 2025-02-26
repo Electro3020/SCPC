@@ -16,9 +16,10 @@ class uint:
     def __str__(self):
         return str(self.value)
 
-    def encode(self):
-        """Turn stored value into bytes"""
-        return self.value.to_bytes(self.NUM_BYTES)
+    @classmethod
+    def encode(cls, value: int):
+        """Turn value into bytes"""
+        return value.to_bytes(cls.NUM_BYTES)
 
     @classmethod
     def decode(cls, value: bytes):
@@ -26,7 +27,7 @@ class uint:
         if len(value) < cls.NUM_BYTES:
             raise ValueError("Wrong number of bytes")
 
-        return (cls(int.from_bytes(value[:cls.NUM_BYTES])), cls.NUM_BYTES)
+        return (int.from_bytes(value[:cls.NUM_BYTES]), cls.NUM_BYTES)
 
 class uint8(uint):
     NUM_BYTES = 1
@@ -53,10 +54,11 @@ class lds:
     def __str__(self):
         return self.value
 
-    def encode(self):
-        """Turn stored value into bytes"""
-        enc = len(self.value).to_bytes()
-        enc += self.value.encode('unicode_escape')
+    @classmethod
+    def encode(cls, value: str):
+        """Turn value into bytes"""
+        enc = len(value).to_bytes()
+        enc += value.encode('unicode_escape')
 
         return enc
 
@@ -68,7 +70,7 @@ class lds:
         if len(value)-1 < length:
             raise ValueError("Wrong number of bytes")
 
-        return (cls(value[1:length+1].decode("unicode_escape")), length+1)
+        return (value[1:length+1].decode("unicode_escape"), length+1)
 
 class nts:
     def __init__(self, value: str=""):
@@ -80,9 +82,10 @@ class nts:
     def __str__(self):
         return self.value
 
-    def encode(self):
+    @classmethod
+    def encode(cls, value: str):
         """Turn stored value into bytes"""
-        enc = self.value.encode('unicode_escape')
+        enc = value.encode('unicode_escape')
         enc += NULL_CHAR
 
         return enc
@@ -93,4 +96,4 @@ class nts:
         if not NULL_CHAR in value:
             raise ValueError("No termination in NTS")
 
-        return (cls(value.split(NULL_CHAR, 1)[0].decode("unicode_escape")), value.index(NULL_CHAR))
+        return (value.split(NULL_CHAR, 1)[0].decode("unicode_escape"), value.index(NULL_CHAR))
