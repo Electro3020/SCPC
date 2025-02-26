@@ -7,6 +7,7 @@ name = "SCPC"
 version = "0.0.0"
 dependencies = ["kdl-py==1.2.0"]
 packages = ["res", "src/util"]
+requires-python = ">= 3.8"
 
 authors = [
   {name = "Lascode", email = "lascode@maketail.dev"},
