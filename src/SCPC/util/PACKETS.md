@@ -77,28 +77,23 @@ If the packet has a different length than given in the 'Packet length' header, d
 **TODO:** Decide whether an error response should be sent
 
 # Python Implementation
-Using the packet encoding/decoding system is fairly simple. I'd recommend taking a look at `/res/util/packets.kdl` and the example at the end of `packets.py`.
+Using the packet encoding/decoding system is fairly simple. I'd recommend taking a look at `/src/SCPC/sample_packets.kdl` and the example at the end of `packets.py`.
 
-To construct a packet, you first need to check that you've imported the data types file at the start of your program:\
-`import util.data_types as dt` # -- (you're not using datetime, right?)
+To construct a packet, you first need to check that you've imported the packets file at the start of your program:\
+`from SCPC.util import packets`
 
-Then call `my_packet = dt.clientbound.packet_name()`.
+Then call `my_packet = dt.clientbound.packet_name(content="Hello, world!", whatever_number=1234)`.
 If you're sending a server-bound or two-way packet, use `serverbound` and `twoway` respectively.
 
-To populate the packet, fill each attribute with their required data type from data_types.py.\
-`my_packet.content = nts("Hello, world!")`\
-`my_packet.whatever_number = uint16(1234)`\
-**TODO:** I have an idea on how to make nts() etc. obsolete, but I can't be bothered right now. Consider it deprecated after v1
-
 Then to encode the packet:\
-`dt.encode(my_packet)`\
+`my_packet.encode()`\
 This will encode the packet into a string of bytes ready to be sent.
 
 To decode a string of bytes into a packet:\
 `my_packet = dt.decode(encoded_packet)`
 
 To access an attribute:\
-`message = str(my_packet.content)`
+`message = my_packet.content`
 
 # Packet identifiers
 Okay, that was a huge amount of what is essentially boiler-plate documentation. For our application, there's no way packets need to be this complex, but it's really fun to learn about.
