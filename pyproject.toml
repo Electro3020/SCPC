@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "SCPC"
 version = "0.0.0"
 dependencies = ["kdl-py==1.2.0"]
+packages = ["res", "src/util"]
 
 authors = [
   {name = "Lascode", email = "lascode@maketail.dev"},
