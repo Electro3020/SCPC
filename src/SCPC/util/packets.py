@@ -7,15 +7,42 @@ import SCPC.util.data_types as dt
 from importlib import resources as impresources
 from SCPC import __name__ as pkg_name
 
+VERSION_MAJOR = 0
+VERSION_MINOR = 0
+
 class Packet:
     """The base class which will be populated on load"""
     id=0
     flags=[]
     idempotency=0
     fields={}
+    type_name=""
+    def __init__(self, **kwargs):
+        for fname, ftype in self.fields.items():
+            setattr(self, fname, getattr(dt, ftype).NATIVE_TYPE())
 
-VERSION_MAJOR = 0
-VERSION_MINOR = 0
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def encode(self):
+        """Encode a Packet"""
+        # First, we need to construct the packet fields, then put together the header
+        pkt_fields = bytes()
+        for key, value in self.fields.items():
+            pkt_fields += getattr(dt, value).encode(getattr(self, key)) # Encode the field into bytes and add to the end of pkt_fields
+            # getattr(dt, i) is essentially the same as dt.i where i is the name of the field type
+            # and getattr(packet, i) is packet.i where i is the field name
+
+        encoded_pkt: bytes = dt.uint16.encode(VERSION_MAJOR) + dt.uint16.encode(VERSION_MINOR) + dt.uint16.encode(self.id)
+        if 'i' in self.flags:
+            encoded_pkt += dt.uint32.encode(self.idempotency)
+
+        # Finally, construct the packet
+        encoded_pkt += pkt_fields
+
+        # Insert the final packet size
+        size = dt.uint32.encode(len(encoded_pkt) + 4)
+        return size + encoded_pkt
 
 """The classes which contains all packet types"""
 class serverbound: pass
@@ -40,7 +67,7 @@ for i in pkt_cfg.nodes:
 
     for n in i.nodes:
         # Create a dictionary of attributes for our new class
-        attr_dict = {"id": int(n.args[0]), "fields": n.props}
+        attr_dict = {"id": int(n.args[0]), "fields": n.props, "type_name": n.name}
 
         if len(n.args) > 1: # has 'flags' argument
             attr_dict["flags"] = list(n.args[1])
@@ -83,52 +110,29 @@ def decode(packet: bytes):
 
     packet_id = int.from_bytes(packet[8:10])
 
-    packet_cls = id_dict[packet_id] # Create a new Packet class instance
+    packet_cls = id_dict[packet_id]() # Create a new Packet class instance
 
     i = 10
     if 'i' in packet_cls.flags:
-        packet_cls.idempotency = packet_cls[10:14]
+        packet_cls.idempotency = packet[10:14]
         i += 4
 
     # Populate the packet class
     for fname, ftype in packet_cls.fields.items(): # fname = name of the packet field, ftype = data type of the field as defined in data_types.py
-        fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type class, number of bytes read from input)
+        fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type value, number of bytes read from input)
         setattr(packet_cls, fname, fcls)
 
         i += inc
 
     return packet_cls
 
-def encode(packet: Packet):
-    """Encode a Packet"""
-    # First, we need to construct the packet fields, then put together the header
-    pkt_fields = bytes()
-    for i in packet.fields:
-        pkt_fields += getattr(packet, i).encode() # Encode the field into bytes and add to the end of pkt_fields
-        # getattr(packet, i) is essentially the same as packet.i where i is the name of the attribute
-
-    header_fields = [dt.uint16(VERSION_MAJOR), dt.uint16(VERSION_MINOR), dt.uint16(packet.id)]
-    if 'i' in packet.flags:
-        header_fields.append(packet.idempotency)
-
-    # Finally, construct the packet
-    encoded_pkt = bytes()
-    for i in header_fields:
-        encoded_pkt += i.encode()
-
-    encoded_pkt += pkt_fields
-
-    # Insert the final packet size
-    size = dt.uint32(len(encoded_pkt) + 4).encode()
-    return size + encoded_pkt
-
 if __name__ == "__main__":
     # Example packet
     my_packet = clientbound.recieve_message()
-    my_packet.nickname = dt.lds("Lascode")
-    my_packet.content = dt.nts("I am a very cute kitty")
+    my_packet.nickname = "Lascode"
+    my_packet.content = "I am a very cute kitty"
 
-    my_encoded_packet = encode(my_packet)
+    my_encoded_packet = my_packet.encode()
 
     print(my_encoded_packet) # send out to client
 

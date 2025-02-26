@@ -2,6 +2,7 @@ NULL_CHAR = 0x00.to_bytes()
 
 class uint:
     NUM_BYTES = 0
+    NATIVE_TYPE = int
     def __init__(self, value: int=0):
         self.MAX_VALUE = 2**(self.NUM_BYTES * 8)
 
@@ -42,6 +43,7 @@ class uint32(uint):
     NUM_BYTES = 4
 
 class lds:
+    NATIVE_TYPE = str
     def __init__(self, value: str=""):
         if len(value) > 255:
             raise OverflowError("String too long for LDS, use NTS instead")
@@ -73,6 +75,7 @@ class lds:
         return (value[1:length+1].decode("unicode_escape"), length+1)
 
 class nts:
+    NATIVE_TYPE = str
     def __init__(self, value: str=""):
         self.value = value
 
@@ -85,7 +88,7 @@ class nts:
     @classmethod
     def encode(cls, value: str):
         """Turn stored value into bytes"""
-        enc = value.encode('unicode_escape')
+        enc = value.encode('unicode_escape').replace(NULL_CHAR, bytes())
         enc += NULL_CHAR
 
         return enc
