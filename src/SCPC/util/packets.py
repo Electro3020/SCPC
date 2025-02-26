@@ -3,7 +3,9 @@
 # ------------ #
 
 import kdl
-import data_types as dt
+import SCPC.util.data_types as dt
+from importlib import resources as impresources
+from SCPC import __name__ as pkg_name
 
 class Packet:
     """The base class which will be populated on load"""
@@ -23,7 +25,8 @@ class twoway: pass
 class PacketReadError(Exception): pass
 
 # Load config file
-with open("res/util/packets.kdl", 'r') as _infile:
+inp_file = impresources.files(pkg_name) / "packets.kdl"
+with inp_file.open('rt') as _infile:
     pkt_cfg = kdl.parse(_infile.read())
 
 # List of tuples (ID, class)
