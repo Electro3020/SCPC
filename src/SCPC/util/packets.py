@@ -4,11 +4,16 @@
 
 import kdl
 import SCPC.util.data_types as dt
-from importlib import resources as impresources
-from SCPC import __name__ as pkg_name
 
-VERSION_MAJOR = 0
-VERSION_MINOR = 0
+class Config:
+    # TODO: find better way to do this
+    # List of tuples (ID, class)
+    id_map = []
+    id_dict = {}
+    VERSION_MAJOR = 0
+    VERSION_MINOR = 0
+
+cfg = Config()
 
 class Packet:
     """The base class which will be populated on load"""
@@ -33,7 +38,7 @@ class Packet:
             # getattr(dt, i) is essentially the same as dt.i where i is the name of the field type
             # and getattr(packet, i) is packet.i where i is the field name
 
-        encoded_pkt: bytes = dt.uint16.encode(VERSION_MAJOR) + dt.uint16.encode(VERSION_MINOR) + dt.uint16.encode(self.id)
+        encoded_pkt: bytes = dt.uint16.encode(cfg.VERSION_MAJOR) + dt.uint16.encode(cfg.VERSION_MINOR) + dt.uint16.encode(self.id)
         if 'i' in self.flags:
             encoded_pkt += dt.uint32.encode(self.idempotency)
 
@@ -51,51 +56,48 @@ class twoway: pass
 
 class PacketReadError(Exception): pass
 
-# Load config file
-inp_file = impresources.files(pkg_name) / "packets.kdl"
-with inp_file.open('rt') as _infile:
-    pkt_cfg = kdl.parse(_infile.read())
+def init(config_file: str):
+    # Load config file
+    with open(config_file, 'rt') as _infile:
+        pkt_cfg = kdl.parse(_infile.read())
 
-# List of tuples (ID, class)
-id_map = []
+    for i in pkt_cfg.nodes:
+        if i.name == "version":
+            cfg.VERSION_MAJOR = int(i.args[0])
+            cfg.VERSION_MINOR = int(i.args[1])
+            continue
 
-for i in pkt_cfg.nodes:
-    if i.name == "version":
-        VERSION_MAJOR = int(i.args[0])
-        VERSION_MINOR = int(i.args[1])
-        continue
+        for n in i.nodes:
+            # Create a dictionary of attributes for our new class
+            attr_dict = {"id": int(n.args[0]), "fields": n.props, "type_name": n.name}
 
-    for n in i.nodes:
-        # Create a dictionary of attributes for our new class
-        attr_dict = {"id": int(n.args[0]), "fields": n.props, "type_name": n.name}
+            if len(n.args) > 1: # has 'flags' argument
+                attr_dict["flags"] = list(n.args[1])
 
-        if len(n.args) > 1: # has 'flags' argument
-            attr_dict["flags"] = list(n.args[1])
+            # Create a new class for the configured packet
+            new_packet = type(n.name, (Packet, ), attr_dict)
 
-        # Create a new class for the configured packet
-        new_packet = type(n.name, (Packet, ), attr_dict)
+            # new_packet is now a class with the name of what was given in packets.kdl and contains:
+            # id: the ID as an int
+            # flags: a list of single characters indicating the packet flags
+            # fields: a dictionary of attribute names and the name of their types as defined in data_types.py
 
-        # new_packet is now a class with the name of what was given in packets.kdl and contains:
-        # id: the ID as an int
-        # flags: a list of single characters indicating the packet flags
-        # fields: a dictionary of attribute names and the name of their types as defined in data_types.py
+            # Assign the new packet class as an attribute
+            if i.name == "serverbound":
+                setattr(serverbound, n.name, new_packet)
+                cfg.id_map.append((n.args[0], getattr(serverbound, n.name)))
 
-        # Assign the new packet class as an attribute
-        if i.name == "serverbound":
-            setattr(serverbound, n.name, new_packet)
-            id_map.append((n.args[0], getattr(serverbound, n.name)))
+            elif i.name == "clientbound":
+                setattr(clientbound, n.name, new_packet)
+                cfg.id_map.append((n.args[0], getattr(clientbound, n.name)))
 
-        elif i.name == "clientbound":
-            setattr(clientbound, n.name, new_packet)
-            id_map.append((n.args[0], getattr(clientbound, n.name)))
+            elif i.name == "twoway":
+                setattr(twoway, n.name, new_packet)
+                cfg.id_map.append((n.args[0], getattr(twoway, n.name)))
 
-        elif i.name == "twoway":
-            setattr(twoway, n.name, new_packet)
-            id_map.append((n.args[0], getattr(twoway, n.name)))
+            # From another script, we can access e.g. packets.serverbound.connect.id and get 0x4002
 
-        # From another script, we can access e.g. packets.serverbound.connect.id and get 0x4002
-
-id_dict = dict(id_map)
+    cfg.id_dict = dict(cfg.id_map)
 
 def decode(packet: bytes):
     """Decode packet"""
@@ -105,12 +107,12 @@ def decode(packet: bytes):
         raise PacketReadError(f"Mismatched packet length (expected {length}, got {len(packet)})")
 
     mv = int.from_bytes(packet[4:6])
-    if mv != VERSION_MAJOR:
-        raise PacketReadError(f"Mismatched packet major version (we're on v{VERSION_MAJOR}.{VERSION_MINOR}, packet's on v{mv})")
+    if mv != cfg.VERSION_MAJOR:
+        raise PacketReadError(f"Mismatched packet major version (we're on v{cfg.VERSION_MAJOR}.{cfg.VERSION_MINOR}, packet's on v{mv})")
 
     packet_id = int.from_bytes(packet[8:10])
 
-    packet_cls = id_dict[packet_id]() # Create a new Packet class instance
+    packet_cls = cfg.id_dict[packet_id]() # Create a new Packet class instance
 
     i = 10
     if 'i' in packet_cls.flags:

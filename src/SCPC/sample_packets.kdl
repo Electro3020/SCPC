@@ -3,9 +3,6 @@
 // version: major minor
 version 0 0
 
-// File containing scramble code
-scramble "res/util/scramble"
-
 serverbound {
     send_message 0x4000 "ri" content="nts"
     connect 0x4002 "ri" nickname="lds"
