@@ -102,11 +102,16 @@ def init(config_file: str):
 def decode(packet: bytes):
     """Decode packet"""
     # Start by getting the header values and verifying them
+    if len(packet) < 10:
+        raise PacketReadError(f"Packet too small for header (len={len(packet)})")
+
     length = int.from_bytes(packet[0:4])
     if length != len(packet):
         raise PacketReadError(f"Mismatched packet length (expected {length}, got {len(packet)})")
 
     mv = int.from_bytes(packet[4:6])
+
+
     if mv != cfg.VERSION_MAJOR:
         raise PacketReadError(f"Mismatched packet major version (we're on v{cfg.VERSION_MAJOR}.{cfg.VERSION_MINOR}, packet's on v{mv})")
 
@@ -116,13 +121,19 @@ def decode(packet: bytes):
 
     i = 10
     if 'i' in packet_cls.flags:
-        packet_cls.idempotency = packet[10:14]
+        if len(packet) < 14:
+            raise PacketReadError(f"Packet too small for idempotency (len={len(packet)})")
+
+        packet_cls.idempotency = int.from_bytes(packet[10:14])
         i += 4
 
     # Populate the packet class
     for fname, ftype in packet_cls.fields.items(): # fname = name of the packet field, ftype = data type of the field as defined in data_types.py
-        fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type value, number of bytes read from input)
-        setattr(packet_cls, fname, fcls)
+        try:
+            fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type value, number of bytes read from input)
+            setattr(packet_cls, fname, fcls)
+        except Exception as e:
+            raise PacketReadError(f"Error while processing packet field {fname} of type {ftype}: {e}: ", e.args)
 
         i += inc
 
