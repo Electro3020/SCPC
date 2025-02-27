@@ -4,6 +4,7 @@
 
 import kdl
 import SCPC.util.data_types as dt
+from cryptography.fernet import Fernet
 
 class Config:
     # TODO: find better way to do this
@@ -29,7 +30,7 @@ class Packet:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def encode(self):
+    def encode(self, encryption_key: bytes|None = None):
         """Encode a Packet"""
         # First, we need to construct the packet fields, then put together the header
         pkt_fields = bytes()
@@ -37,6 +38,9 @@ class Packet:
             pkt_fields += getattr(dt, value).encode(getattr(self, key)) # Encode the field into bytes and add to the end of pkt_fields
             # getattr(dt, i) is essentially the same as dt.i where i is the name of the field type
             # and getattr(packet, i) is packet.i where i is the field name
+
+        if encryption_key:
+            pkt_fields = Fernet(encryption_key).encrypt(pkt_fields)
 
         encoded_pkt: bytes = dt.uint16.encode(cfg.VERSION_MAJOR) + dt.uint16.encode(cfg.VERSION_MINOR) + dt.uint16.encode(self.id)
         if 'i' in self.flags:
@@ -99,7 +103,7 @@ def init(config_file: str):
 
     cfg.id_dict = dict(cfg.id_map)
 
-def decode(packet: bytes):
+def decode(packet: bytes, encryption_key: bytes|None = None):
     """Decode packet"""
     # Start by getting the header values and verifying them
     if len(packet) < 10:
@@ -127,10 +131,16 @@ def decode(packet: bytes):
         packet_cls.idempotency = int.from_bytes(packet[10:14])
         i += 4
 
+    # Decrypt
+    fields = packet[i:]
+    if encryption_key:
+        fields = Fernet(encryption_key).decrypt(fields)
+
     # Populate the packet class
+    i = 0
     for fname, ftype in packet_cls.fields.items(): # fname = name of the packet field, ftype = data type of the field as defined in data_types.py
         try:
-            fcls, inc = getattr(dt, ftype).decode(packet[i:]) # returns a tuple (data type value, number of bytes read from input)
+            fcls, inc = getattr(dt, ftype).decode(fields[i:]) # returns a tuple (data type value, number of bytes read from input)
             setattr(packet_cls, fname, fcls)
         except Exception as e:
             raise PacketReadError(f"Error while processing packet field {fname} of type {ftype}: {e}: ", e.args)
@@ -139,5 +149,19 @@ def decode(packet: bytes):
 
     return packet_cls
 
+def generate_key():
+    return Fernet.generate_key()
+
 if __name__ == "__main__":
-    pass # TODO: add tests
+    key = generate_key()
+    init("SCPC/sample_packets.kdl")
+
+    pkt = serverbound.send_message(content="Hello, World!")
+
+    encrypted_pkt = pkt.encode(key)
+
+    print(encrypted_pkt.hex(' '))
+
+    decoded_pkt = decode(encrypted_pkt, key)
+
+    print(decoded_pkt.content)

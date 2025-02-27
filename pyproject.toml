@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "SCPC"
 version = "0.0.0"
-dependencies = ["kdl-py==1.2.0"]
+dependencies = ["kdl-py>=1.2.0", "cryptography>=1.17.1"]
 packages = ["res", "src/util"]
 requires-python = ">= 3.8"
 
