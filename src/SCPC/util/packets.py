@@ -129,15 +129,4 @@ def decode(packet: bytes):
     return packet_cls
 
 if __name__ == "__main__":
-    # Example packet
-    my_packet = clientbound.recieve_message()
-    my_packet.nickname = "Lascode"
-    my_packet.content = "I am a very cute kitty"
-
-    my_encoded_packet = my_packet.encode()
-
-    print(my_encoded_packet) # send out to client
-
-    my_decoded_packet = decode(my_encoded_packet)
-
-    print(f"{my_decoded_packet.nickname}: {my_decoded_packet.content}") # my_decoded_packet is a recieve_message packet
+    # TODO: add tests
