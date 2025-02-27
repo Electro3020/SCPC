@@ -129,4 +129,4 @@ def decode(packet: bytes):
     return packet_cls
 
 if __name__ == "__main__":
-    # TODO: add tests
+    pass # TODO: add tests
