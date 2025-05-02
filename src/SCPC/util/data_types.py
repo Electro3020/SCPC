@@ -100,3 +100,48 @@ class nts:
             raise ValueError("No termination in NTS")
 
         return (value.split(NULL_CHAR, 1)[0].decode("unicode_escape"), value.index(NULL_CHAR))
+
+class ldi:  # length-delimited integer
+    NATIVE_TYPE = int
+    
+    def __init__(self, value: int=0):
+        self.value = value
+        
+    def __int__(self):
+        return self.value
+    
+    def __str__(self):
+        return str(self.value)
+    
+    @classmethod
+    def encode(cls, value: int):
+        MAX_BYTES = 255
+        num_bytes = (value.bit_length() + 7) // 8
+        
+        if value == 0:
+            return b'\x00'
+        
+        value_bytes = value.to_bytes(num_bytes, byteorder='big', signed=True)
+        
+        if num_bytes > MAX_BYTES: raise ValueError(f"Value too large. Maximum bytes in string: {MAX_BYTES}; Recieved: {num_bytes}")
+
+        return num_bytes.to_bytes() + value_bytes
+
+    @classmethod
+    def decode(cls, data: bytes):
+        if len(data) == 0:
+            raise ValueError("No data to decode")
+
+        num_bytes = int.from_bytes(data[0:1], byteorder="big", signed=False)
+
+        if num_bytes == 0:
+            return (0, 1) 
+
+        if len(data) < 1 + num_bytes:
+            raise ValueError("Not enough bytes to decode")
+
+        value_bytes = data[1:1+num_bytes]
+        value = int.from_bytes(value_bytes, byteorder='big', signed=True)
+
+        return (value, num_bytes)
+

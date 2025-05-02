@@ -66,7 +66,7 @@ If the value starts with '#', it is a hexadecimal value ('#F2'), otherwise it is
 | uint8 | Unsigned 8-bit integer | [#A7]
 | uint16/24/32 etc | Unsigned integer | [#12] [#3A] [#45] ...
 | sint8/16/24 etc | Signed integer | [#80] [#FF] [#12] ... | First bit determines whether it is negative
-| ldi | Length-determined integer | [#04] [#12] [#3A] [#45] [#6C] | First byte is a 7-bit uint which represents the length in bytes. If length is 0, consider the value to be 0. If first bit of length is 1, treat value as a negative signed int.
+| ldi | Length-delimited integer | [#04] [#12] [#3A] [#45] [#6C] | First byte is a 7-bit uint which represents the length in bytes. If length is 0, consider the value to be 0. ## ALL CREDIT TO @frogflavouredwater for implementation
 | nts | Null-terminated string | [H] [E] [L] [L] [O] [NUL] | Arbitary length string ending in 'NUL' (0x00)
 | lds | Length-determined string | [#05] [H] [E] [L] [L] [O] | Maximum length of 255
 
